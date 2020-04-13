@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"runtime"
 	"strings"
 	"sync"
 
@@ -1476,6 +1477,29 @@ func (fr *Framer) maxHeaderStringLen() int {
 	return 0
 }
 
+var metaHeadersFramePool = sync.Pool{
+	New: func() interface{} {
+		mh := &MetaHeadersFrame{
+			Fields: make([]hpack.HeaderField, 0, 10),
+		}
+		return mh
+	},
+}
+
+func newMetaHeadersFrame() *MetaHeadersFrame {
+	mh := metaHeadersFramePool.Get().(*MetaHeadersFrame)
+	runtime.SetFinalizer(mh, freeMetaHeadersFrame)
+	return mh
+}
+
+func freeMetaHeadersFrame(mh *MetaHeadersFrame) {
+	println("回收", len(mh.Fields))
+	mh.HeadersFrame = nil
+	mh.Fields = mh.Fields[:0]
+	mh.Truncated = false
+	metaHeadersFramePool.Put(mh)
+}
+
 // readMetaFrame returns 0 or more CONTINUATION frames from fr and
 // merge them into the provided hf and returns a MetaHeadersFrame
 // with the decoded hpack values.
@@ -1483,9 +1507,8 @@ func (fr *Framer) readMetaFrame(hf *HeadersFrame) (*MetaHeadersFrame, error) {
 	if fr.AllowIllegalReads {
 		return nil, errors.New("illegal use of AllowIllegalReads with ReadMetaHeaders")
 	}
-	mh := &MetaHeadersFrame{
-		HeadersFrame: hf,
-	}
+	mh := newMetaHeadersFrame()
+	mh.HeadersFrame = hf
 	var remainSize = fr.maxHeaderListSize()
 	var sawRegular bool
 
