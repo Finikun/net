@@ -1493,7 +1493,6 @@ func newMetaHeadersFrame() *MetaHeadersFrame {
 }
 
 func freeMetaHeadersFrame(mh *MetaHeadersFrame) {
-	println("回收", len(mh.Fields))
 	mh.HeadersFrame = nil
 	mh.Fields = mh.Fields[:0]
 	mh.Truncated = false
