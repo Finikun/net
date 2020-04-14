@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"runtime"
 	"strings"
 	"sync"
 
@@ -1475,28 +1474,6 @@ func (fr *Framer) maxHeaderStringLen() int {
 	// They had a crazy big number for MaxHeaderBytes anyway,
 	// so give them unlimited header lengths:
 	return 0
-}
-
-var metaHeadersFramePool = sync.Pool{
-	New: func() interface{} {
-		mh := &MetaHeadersFrame{
-			Fields: make([]hpack.HeaderField, 0, 10),
-		}
-		return mh
-	},
-}
-
-func newMetaHeadersFrame() *MetaHeadersFrame {
-	mh := metaHeadersFramePool.Get().(*MetaHeadersFrame)
-	runtime.SetFinalizer(mh, freeMetaHeadersFrame)
-	return mh
-}
-
-func freeMetaHeadersFrame(mh *MetaHeadersFrame) {
-	mh.HeadersFrame = nil
-	mh.Fields = mh.Fields[:0]
-	mh.Truncated = false
-	metaHeadersFramePool.Put(mh)
 }
 
 // readMetaFrame returns 0 or more CONTINUATION frames from fr and
